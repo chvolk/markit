@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from stocks.models import UserProfile  # Adjust import as needed
+from accounts.models import UserProfile  # Adjust import as needed
 from django.db.models import F
 
 class Command(BaseCommand):
