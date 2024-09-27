@@ -1,21 +1,22 @@
 from django.core.management.base import BaseCommand
-from stocks.models import UserProfile
-from stocks.models import StockHolding  # Adjust this import if needed
+from stocks.models import UserProfile, PortfolioStock, Portfolio
 
 class Command(BaseCommand):
     help = 'Updates the leaderboard by recalculating user portfolios'
 
     def handle(self, *args, **options):
-        # Fetch all user profiles
-        user_profiles = UserProfile.objects.all()
+        # Fetch all portfolios
+        portfolios = Portfolio.objects.all()
 
-        for profile in user_profiles:
+        for portfolio in portfolios:
             # Recalculate portfolio value
-            total_value = sum(holding.stock.current_price * holding.quantity 
-                              for holding in StockHolding.objects.filter(user=profile.user))
+            stock_value = sum(holding.stock.current_price * holding.quantity 
+                              for holding in PortfolioStock.objects.filter(portfolio=portfolio))
+            total_value = stock_value + portfolio.balance
             
             # Update total gain/loss
-            profile.total_gain_loss = total_value - profile.initial_balance
-            profile.save()
+            portfolio.total_value = total_value
+            portfolio.total_gain_loss = total_value - portfolio.initial_investment
+            portfolio.save()
 
         self.stdout.write(self.style.SUCCESS('Successfully updated leaderboard'))
