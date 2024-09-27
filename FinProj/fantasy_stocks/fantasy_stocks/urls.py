@@ -20,6 +20,7 @@ from django.urls import path, include
 from accounts.views import CustomAuthToken, LogoutView, SignupView
 from stocks.views import AvailableStocksView
 from stocks.views import DraftStockView
+from stocks.views import PortfolioView
 from leagues.views import LeagueViewSet
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -42,5 +43,6 @@ urlpatterns = [
     path('api/signup/', SignupView.as_view()),
     path('api/stocks/available/', AvailableStocksView.as_view()),
     path('api/test-cors/', test_cors),
+    path('api/portfolio/', PortfolioView.as_view()),
     # ... other urls ...
 ]

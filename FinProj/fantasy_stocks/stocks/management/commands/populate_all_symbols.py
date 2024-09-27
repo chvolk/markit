@@ -34,7 +34,7 @@ class Command(BaseCommand):
                         defaults={
                             'name': info.get('longName', symbol),
                             'current_price': info.get('currentPrice'),
-                            'industry': info.get('industry')
+                            'industry': info.get('industry', 'Unknown')
                         }
                     )
                     

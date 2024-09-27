@@ -11,6 +11,7 @@ class Stock(models.Model):
 class Portfolio(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     stocks = models.ManyToManyField('Stock', through='PortfolioStock')
+    last_reset = models.DateTimeField(auto_now_add=True)
 
     def calculate_value(self):
         return sum(ps.stock.current_price * ps.quantity for ps in self.portfoliostock_set.all())

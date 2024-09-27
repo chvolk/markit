@@ -4,7 +4,7 @@ from .models import Stock, Portfolio, PortfolioStock
 class StockSerializer(serializers.ModelSerializer):
     class Meta:
         model = Stock
-        fields = ['id', 'symbol', 'name', 'current_price', 'last_updated']
+        fields = ['id', 'symbol', 'name', 'current_price', 'industry', 'last_updated']
 
 class PortfolioStockSerializer(serializers.ModelSerializer):
     stock = StockSerializer()
