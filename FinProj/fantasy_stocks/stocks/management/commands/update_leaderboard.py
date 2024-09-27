@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
-from accounts.models import UserProfile  # Adjust import as needed
-from django.db.models import F
+from accounts.models import UserProfile
+from stocks.models import StockHolding  # Adjust this import if needed
 
 class Command(BaseCommand):
     help = 'Updates the leaderboard by recalculating user portfolios'
@@ -12,7 +12,7 @@ class Command(BaseCommand):
         for profile in user_profiles:
             # Recalculate portfolio value
             total_value = sum(holding.stock.current_price * holding.quantity 
-                              for holding in profile.stockholding_set.all())
+                              for holding in StockHolding.objects.filter(user=profile.user))
             
             # Update total gain/loss
             profile.total_gain_loss = total_value - profile.initial_balance
