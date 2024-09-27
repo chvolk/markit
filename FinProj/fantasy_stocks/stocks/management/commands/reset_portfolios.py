@@ -8,6 +8,8 @@ class Command(BaseCommand):
     def handle(self, *args, **kwargs):
         # Delete all PortfolioStock entries
         PortfolioStock.objects.all().delete()
+        # Reset balance to 50000 for all portfolios
+        Portfolio.objects.update(balance=50000.00)
 
         # Update all Portfolios to reset any calculated values
         Portfolio.objects.update(last_reset=timezone.now())
