@@ -3,7 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import viewsets
 from .models import Stock, Portfolio, PortfolioStock
-from .serializers import StockSerializer, PortfolioSerializer
+from .serializers import StockSerializer, PortfolioSerializer, UserSerializer
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -17,6 +17,7 @@ from django.db import transaction
 from django.db.models import F, Sum, DecimalField, ExpressionWrapper
 from django.db.models.functions import Coalesce
 from django.contrib.auth.models import User
+from decimal import Decimal
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -63,7 +64,7 @@ class DraftStockView(APIView):
             portfolio_stock, created = PortfolioStock.objects.get_or_create(
                 portfolio=portfolio, 
                 stock=stock,
-                defaults={'purchase_price': 1}
+                defaults={'purchase_price': stock.current_price}
             )
             if not created:
                 # If not created, update the purchase price as an average
@@ -80,7 +81,8 @@ class DraftStockView(APIView):
             return Response({
                 'message': f'Successfully drafted {quantity} shares of {stock.name}',
                 'new_quantity': portfolio_stock.quantity,
-                'remaining_balance': float(portfolio.balance)
+                'remaining_balance': float(portfolio.balance),
+                'user': request.user.username
             }, status=status.HTTP_200_OK)
         except Stock.DoesNotExist:
             return Response({'error': 'Stock not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -92,15 +94,19 @@ class PortfolioView(APIView):
 
     def get(self, request):
         portfolio, created = Portfolio.objects.get_or_create(user=request.user)
+        portfolio.update_total_value_and_gain_loss()  # Update the total value and gain/loss
         portfolio_stocks = PortfolioStock.objects.filter(portfolio=portfolio)
         data = {
-            'balance': float(portfolio.balance),
+            'balance': str(portfolio.balance),
+            'total_value': str(portfolio.total_value),
+            'total_gain_loss': str(portfolio.total_gain_loss),
+            'user': request.user.username,
             'stocks': [{
                 'stock': {
                     'symbol': ps.stock.symbol,
                     'name': ps.stock.name,
-                    'current_price': float(ps.stock.current_price),
-                    'purchase_price': float(ps.purchase_price) if ps.purchase_price is not None else float(ps.stock.current_price)
+                    'current_price': str(ps.stock.current_price),
+                    'purchase_price': str(ps.purchase_price) if ps.purchase_price is not None else str(ps.stock.current_price)
                 },
                 'quantity': ps.quantity
             } for ps in portfolio_stocks]
@@ -123,9 +129,59 @@ class LeaderboardView(APIView):
                 output_field=DecimalField(max_digits=10, decimal_places=2)
             ),
             gain_loss=ExpressionWrapper(
-                F('total_value') - 50000,
+                F('total_value') - F('portfolio__initial_investment'),
                 output_field=DecimalField(max_digits=10, decimal_places=2)
             )
         ).values('username', 'total_value', 'gain_loss').order_by('-gain_loss')
 
         return Response(list(users))
+
+class SellStockView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request):
+        stock_symbol = request.data.get('symbol')
+        quantity = int(request.data.get('quantity', 1))
+
+        try:
+            stock = Stock.objects.get(symbol=stock_symbol)
+            portfolio = Portfolio.objects.get(user=request.user)
+            portfolio_stock = PortfolioStock.objects.get(portfolio=portfolio, stock=stock)
+
+            if portfolio_stock.quantity < quantity:
+                return Response({
+                    'error': 'Not enough shares to complete this sale.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            total_sale = stock.current_price * quantity
+            portfolio_stock.quantity -= quantity
+            
+            if portfolio_stock.quantity == 0:
+                portfolio_stock.delete()
+            else:
+                portfolio_stock.save()
+
+            portfolio.balance += total_sale
+            portfolio.save()
+
+            portfolio.update_total_value_and_gain_loss()
+
+            return Response({
+                'message': f'Successfully sold {quantity} shares of {stock.name}',
+                'new_quantity': portfolio_stock.quantity if portfolio_stock.quantity > 0 else 0,
+                'remaining_balance': float(portfolio.balance)
+            }, status=status.HTTP_200_OK)
+        except Stock.DoesNotExist:
+            return Response({'error': 'Stock not found'}, status=status.HTTP_404_NOT_FOUND)
+        except PortfolioStock.DoesNotExist:
+            return Response({'error': 'You do not own this stock'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class UserView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        serializer = UserSerializer(request.user)
+        return Response(serializer.data)

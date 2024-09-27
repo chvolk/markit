@@ -25,7 +25,7 @@ from leagues.views import LeagueViewSet
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.urls import path
-from stocks.views import LeaderboardView
+from stocks.views import LeaderboardView, SellStockView
 
 router = DefaultRouter()
 router.register(r'leagues', LeagueViewSet, basename='league')
@@ -46,5 +46,6 @@ urlpatterns = [
     path('api/test-cors/', test_cors),
     path('api/portfolio/', PortfolioView.as_view()),
     path('api/leaderboard/', LeaderboardView.as_view()),
+    path('api/sell/', SellStockView.as_view()),
     # ... other urls ...
 ]

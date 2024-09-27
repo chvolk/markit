@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Stock, Portfolio, PortfolioStock
+from django.contrib.auth.models import User
 
 class StockSerializer(serializers.ModelSerializer):
     class Meta:
@@ -19,3 +20,8 @@ class PortfolioSerializer(serializers.ModelSerializer):
     class Meta:
         model = Portfolio
         fields = ['id', 'user', 'stocks']
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email']

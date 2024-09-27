@@ -11,6 +11,7 @@ from django.contrib.auth.models import User
 from .serializers import UserSerializer
 from django.core.management import call_command
 from stocks.models import Stock
+from rest_framework.permissions import AllowAny
 
 class CustomAuthToken(ObtainAuthToken):
     def post(self, request, *args, **kwargs):
@@ -32,6 +33,8 @@ class LogoutView(APIView):
         return Response(status=status.HTTP_200_OK)
 
 class SignupView(APIView):
+    permission_classes = [AllowAny]
+
     def post(self, request):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
