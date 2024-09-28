@@ -19,6 +19,7 @@ from rest_framework.routers import DefaultRouter
 from django.urls import path, include
 from accounts.views import CustomAuthToken, LogoutView, SignupView
 from stocks.views import AvailableStocksView
+from stocks.views import PortfolioHistoryView
 from stocks.views import DraftStockView
 from stocks.views import PortfolioView
 from leagues.views import LeagueViewSet
@@ -45,6 +46,7 @@ urlpatterns = [
     path('api/stocks/available/', AvailableStocksView.as_view()),
     path('api/test-cors/', test_cors),
     path('api/portfolio/', PortfolioView.as_view()),
+    path('api/portfolio-history/', PortfolioHistoryView.as_view(), name='portfolio-history'),
     path('api/leaderboard/', LeaderboardView.as_view()),
     path('api/sell/', SellStockView.as_view()),
     # ... other urls ...

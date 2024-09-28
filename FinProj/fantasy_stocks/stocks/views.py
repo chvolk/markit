@@ -3,7 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import viewsets
 from .models import Stock, Portfolio, PortfolioStock
-from .serializers import StockSerializer, PortfolioSerializer, UserSerializer
+from .serializers import StockSerializer, PortfolioSerializer
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -18,6 +18,7 @@ from django.db.models import F, Sum, DecimalField, ExpressionWrapper
 from django.db.models.functions import Coalesce
 from django.contrib.auth.models import User
 from decimal import Decimal
+from .models import PortfolioHistory
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -42,6 +43,18 @@ class PortfolioViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Portfolio.objects.filter(user=self.request.user)
+    
+class PortfolioHistoryView(APIView):
+    def get(self, request):
+        history = PortfolioHistory.objects.filter(user=request.user).order_by('timestamp')
+        data = [
+            {
+                'timestamp': entry.timestamp.isoformat(),
+                'total_value': float(entry.total_value)
+            }
+            for entry in history
+        ]
+        return Response(data)
 
 class DraftStockView(APIView):
     permission_classes = [IsAuthenticated]
@@ -81,8 +94,7 @@ class DraftStockView(APIView):
             return Response({
                 'message': f'Successfully drafted {quantity} shares of {stock.name}',
                 'new_quantity': portfolio_stock.quantity,
-                'remaining_balance': float(portfolio.balance),
-                'user': request.user.username
+                'remaining_balance': float(portfolio.balance)
             }, status=status.HTTP_200_OK)
         except Stock.DoesNotExist:
             return Response({'error': 'Stock not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -100,7 +112,6 @@ class PortfolioView(APIView):
             'balance': str(portfolio.balance),
             'total_value': str(portfolio.total_value),
             'total_gain_loss': str(portfolio.total_gain_loss),
-            'user': request.user.username,
             'stocks': [{
                 'stock': {
                     'symbol': ps.stock.symbol,
@@ -178,10 +189,3 @@ class SellStockView(APIView):
             return Response({'error': 'You do not own this stock'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-class UserView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        serializer = UserSerializer(request.user)
-        return Response(serializer.data)
