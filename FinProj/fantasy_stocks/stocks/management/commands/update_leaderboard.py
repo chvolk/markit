@@ -1,8 +1,10 @@
 from django.core.management.base import BaseCommand
-from stocks.models import UserProfile, PortfolioStock, Portfolio
+from django.db.models import F, Sum, DecimalField
+from django.db.models.functions import Coalesce
+from stocks.models import UserProfile, PortfolioStock, Portfolio, PortfolioHistory
 
 class Command(BaseCommand):
-    help = 'Updates the leaderboard by recalculating user portfolios'
+    help = 'Updates the leaderboard by recalculating user portfolios and logs historical data'
 
     def handle(self, *args, **options):
         # Fetch all portfolios
@@ -19,4 +21,10 @@ class Command(BaseCommand):
             portfolio.total_gain_loss = total_value - portfolio.initial_investment
             portfolio.save()
 
-        self.stdout.write(self.style.SUCCESS('Successfully updated leaderboard'))
+            # Log historical data
+            PortfolioHistory.objects.create(
+                user=portfolio.user,
+                total_value=total_value
+            )
+
+        self.stdout.write(self.style.SUCCESS('Successfully updated leaderboard and logged historical data'))
