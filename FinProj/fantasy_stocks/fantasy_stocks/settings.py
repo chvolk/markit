@@ -71,6 +71,7 @@ INSTALLED_APPS = [
     'accounts',
     'stocks',  # Add this line
     'leagues',  # Make sure this is also included
+    'bazaar',  # Add this line
 ]
 
 MIDDLEWARE = [
@@ -167,12 +168,16 @@ REST_FRAMEWORK = {
     ],
 }
 
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SECURE_SSL_REDIRECT = True
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+# SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+# SECURE_SSL_REDIRECT = True
+# SESSION_COOKIE_SECURE = True
+# CSRF_COOKIE_SECURE = True
+SECURE_PROXY_SSL_HEADER = None
+SECURE_SSL_REDIRECT = False
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
 
-CSRF_TRUSTED_ORIGINS = ['https://moq.exchange', 'http://localhost:8080']
+CSRF_TRUSTED_ORIGINS = ['https://moq.exchange', 'http://localhost:8080', 'http://localhost:8000']
 
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True

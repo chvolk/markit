@@ -12,6 +12,10 @@ from .serializers import UserSerializer
 from django.core.management import call_command
 from stocks.models import Stock
 from rest_framework.permissions import AllowAny
+from bazaar.models import BazaarUserProfile
+from stocks.models import Portfolio
+from django.db import transaction
+
 
 class CustomAuthToken(ObtainAuthToken):
     def post(self, request, *args, **kwargs):
@@ -33,13 +37,21 @@ class LogoutView(APIView):
         return Response(status=status.HTTP_200_OK)
 
 class SignupView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = []
 
+    @transaction.atomic
     def post(self, request):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
             token, created = Token.objects.get_or_create(user=user)
+            
+            # Create BazaarUserProfile
+            BazaarUserProfile.objects.create(user=user, moqs=1000)  # Start with 1000 moqs
+            
+            # Create Portfolio (if not already created elsewhere)
+            Portfolio.objects.create(user=user, balance=50000)  # Start with $50,000
+            
             return Response({
                 'token': token.key,
                 'user_id': user.pk,
