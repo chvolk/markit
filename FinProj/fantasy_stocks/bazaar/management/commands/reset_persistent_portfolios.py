@@ -48,7 +48,7 @@ class Command(BaseCommand):
                     PersistentPortfolioStock.objects.all().delete()
                     
                     # Update BazaarUserProfile to reset MOQs
-                    BazaarUserProfile.objects.all().update(moqs=800)  # Set default MOQs
+                    BazaarUserProfile.objects.all().update(moqs=500)  # Set default MOQs
                     
                     if reset_inventories:
                         # Delete all Inventory entries
