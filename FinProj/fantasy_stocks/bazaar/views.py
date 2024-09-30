@@ -113,7 +113,7 @@ class AddToInventoryView(APIView):
         portfolio_stock, created = PersistentPortfolioStock.objects.get_or_create(
             portfolio=persistent_portfolio,
             stock=stock,
-            defaults={'quantity': 1, 'purchase_price': stock.current_price}
+            defaults={'quantity': 1, 'purchase_price': 0}
         )
         
         if not created:
@@ -162,19 +162,22 @@ class BuyPackView(APIView):
         
         # Get 5 random stocks from the selected industry
         industry_stocks = list(Stock.objects.filter(industry=selected_industry))
-        pack_stocks = random.sample(industry_stocks, min(5, len(industry_stocks)))
-        
+        selected_pack_stocks = random.sample(industry_stocks, min(5, len(industry_stocks)))
+        print("Pack stocks picked:")
+        for stock in selected_pack_stocks:
+            print(f"Symbol: {stock.symbol}, Name: {stock.name}, Industry: {stock.industry}")
         persistent_portfolio, _ = PersistentPortfolio.objects.get_or_create(user=request.user)
         
         pack_stocks = []
-        for stock in pack_stocks:
+        for stock in selected_pack_stocks:
             pack_stocks.append({
                 'symbol': stock.symbol,
                 'name': stock.name,
                 'industry': stock.industry,
                 'current_price': stock.current_price
             })
-
+        print("Pack stocks before sending to frontend:")
+        print(pack_stocks)
         if currency == 'gains':
             portfolio.balance -= pack_price
             portfolio.save()
