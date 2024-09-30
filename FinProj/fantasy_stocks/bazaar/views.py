@@ -248,7 +248,7 @@ class ListStockView(APIView):
         
 class EditListingView(APIView):
     permission_classes = [IsAuthenticated]
-
+ 
     def put(self, request, listing_id):
         listing = get_object_or_404(BazaarListing, id=listing_id, seller=request.user)
         
