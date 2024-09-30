@@ -18,7 +18,7 @@ from django.contrib import admin
 from rest_framework.routers import DefaultRouter
 from django.urls import path, include
 from accounts.views import CustomAuthToken, LogoutView, SignupView
-from stocks.views import DraftStockView, AvailableStocksView, PortfolioView, PortfolioHistoryView, LeaderboardView, SellStockView
+from stocks.views import DraftStockView, AvailableStocksView, PortfolioView, PortfolioHistoryView, LeaderboardView, SellStockView as StockSellerView
 from leagues.views import LeagueViewSet
 from bazaar.views import (
     BuyStockView, SellStockView, AddToInventoryView, BuyPackView, CancelListingView,
@@ -46,7 +46,7 @@ urlpatterns = [
     path('api/portfolio/', PortfolioView.as_view()),
     path('api/portfolio-history/', PortfolioHistoryView.as_view(), name='portfolio-history'),
     path('api/leaderboard/', LeaderboardView.as_view()),
-    path('api/sell/', SellStockView.as_view()),
+    path('api/sell/', StockSellerView.as_view()),
     
     # Bazaar URLs
     path('api/bazaar/', bazaar_data, name='bazaar-data'),
