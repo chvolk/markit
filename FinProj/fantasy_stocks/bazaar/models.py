@@ -14,6 +14,7 @@ class InventoryStock(models.Model):
     current_price = models.DecimalField(max_digits=10, decimal_places=2)
 
 class BazaarListing(models.Model):
+    id = models.AutoField(primary_key=True)
     seller = models.ForeignKey(User, on_delete=models.CASCADE)
     stock = models.ForeignKey(Stock, on_delete=models.CASCADE, default=1)  # Set a default Stock ID
     price = models.DecimalField(max_digits=10, decimal_places=2)  # Use DecimalField for price

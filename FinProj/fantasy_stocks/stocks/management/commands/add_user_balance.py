@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand, CommandError
 from django.contrib.auth.models import User
 from stocks.models import Portfolio
+from bazaar.models import BazaarUserProfile
 from django.db import transaction
 
 class Command(BaseCommand):
@@ -21,12 +22,15 @@ class Command(BaseCommand):
 
         try:
             portfolio = Portfolio.objects.get(user=user)
+            bazaar_profile = BazaarUserProfile.objects.get(user=user)
         except Portfolio.DoesNotExist:
             raise CommandError(f'Portfolio for user "{username}" does not exist')
 
         old_balance = portfolio.balance
         portfolio.balance += amount_to_add
+        bazaar_profile.moqs += 500
         portfolio.save()
+        bazaar_profile.save()
 
         self.stdout.write(self.style.SUCCESS(
             f'Successfully added ${amount_to_add} to {username}\'s balance. '

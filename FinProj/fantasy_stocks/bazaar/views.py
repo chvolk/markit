@@ -266,19 +266,22 @@ class BuyListedStockView(APIView):
     def post(self, request):
         listing_id = request.data.get('listing_id')
         listing = get_object_or_404(BazaarListing, id=listing_id)
+        try:    
+            print(f"Buying listing {listing_id} with price {listing.price}")
+            buyer_profile = get_object_or_404(BazaarUserProfile, user=request.user)
         
-        buyer_profile = get_object_or_404(BazaarUserProfile, user=request.user)
-        
-        if buyer_profile.moqs < listing.price:
-            return Response({"error": "Insufficient moqs"}, status=status.HTTP_400_BAD_REQUEST)
-        
+            if buyer_profile.moqs < listing.price:
+                return Response({"error": "Insufficient moqs"}, status=status.HTTP_400_BAD_REQUEST)
+            print("got past moqs check")
+        except Exception as e:
+            print(f"Error getting buyer profile: {str(e)}")
         buyer_profile.moqs -= listing.price
         buyer_profile.save()
-        
+        print("deducted moqs from buyer")
         seller_profile = get_object_or_404(BazaarUserProfile, user=listing.seller)
         seller_profile.moqs += listing.price
         seller_profile.save()
-        
+        print("added moqs to seller")
         # Transfer the stock to the buyer's inventory
         InventoryStock.objects.create(
             user=request.user,
@@ -287,10 +290,10 @@ class BuyListedStockView(APIView):
             industry=listing.stock.industry,
             current_price=listing.stock.current_price
         )
-        
+        print("created inventory stock")
         # Remove the listing
         listing.delete()
-        
+        print("deleted listing")
         print(f"Listing {listing_id} bought and removed")
         
         return Response({"message": "Listed stock bought successfully"})
