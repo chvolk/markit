@@ -14,6 +14,12 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from random import choice
 import random
+import traceback
+from django.db import transaction
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -21,19 +27,45 @@ def bazaar_data(request):
     user = request.user
     profile, created = BazaarUserProfile.objects.get_or_create(user=user, defaults={'moqs': 1000})
     portfolio = get_object_or_404(Portfolio, user=user)
+    persistent_portfolio, created = PersistentPortfolio.objects.get_or_create(user=user)
     
     available_gains = max(0, portfolio.balance - 50000)  # Assuming starting balance is 50000
     
     inventory = InventoryStock.objects.filter(user=user)
-    market_listings = BazaarListing.objects.exclude(seller=user)
+    market_listings = BazaarListing.objects.all()
     user_listings = BazaarListing.objects.filter(seller=user)
+    persistent_stocks = PersistentPortfolioStock.objects.filter(portfolio=persistent_portfolio)
     
+    # Fetch current prices for persistent stocks
+    persistent_stock_data = []
+    for ps in persistent_stocks:
+        stock_data = {
+            'symbol': ps.stock.symbol,
+            'name': ps.stock.name,
+            'industry': ps.stock.industry,
+            'quantity': ps.quantity,
+            'purchase_price': ps.purchase_price,
+            'current_price': ps.stock.current_price
+        }
+        persistent_stock_data.append(stock_data)
+    
+    market_listings_data = []
+    for listing in market_listings:
+        serialized_listing = BazaarListingSerializer(listing).data
+        market_listings_data.append(serialized_listing)
+    
+    user_listings_data = []
+    for listing in user_listings:
+        user_listings_data.append(BazaarListingSerializer(listing).data)
+    
+
     return Response({
         'available_gains': available_gains,
         'total_moqs': profile.moqs,
         'inventory': InventoryStockSerializer(inventory, many=True).data,
-        'market_listings': BazaarListingSerializer(market_listings, many=True).data,
-        'user_listings': BazaarListingSerializer(user_listings, many=True).data,
+        'market_listings': market_listings_data,
+        'user_listings': user_listings_data,
+        'persistent_portfolio': persistent_stock_data,
     })
 
 
@@ -108,26 +140,11 @@ class AddToInventoryView(APIView):
             inventory_stock.current_price = stock.current_price
             inventory_stock.save()
         
-        # Add to persistent portfolio
-        persistent_portfolio, _ = PersistentPortfolio.objects.get_or_create(user=request.user)
-        portfolio_stock, created = PersistentPortfolioStock.objects.get_or_create(
-            portfolio=persistent_portfolio,
-            stock=stock,
-            defaults={'quantity': 1, 'purchase_price': 0}
-        )
-        
-        if not created:
-            portfolio_stock.quantity += 1
-            portfolio_stock.save()
+
         
         serializer = InventoryStockSerializer(inventory_stock)
         return Response({
             'inventory_stock': serializer.data,
-            'persistent_portfolio_stock': {
-                'symbol': stock.symbol,
-                'quantity': portfolio_stock.quantity,
-                'purchase_price': float(portfolio_stock.purchase_price)
-            }
         }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 class BuyPackView(APIView):
@@ -191,24 +208,45 @@ class BuyPackView(APIView):
             "stocks": pack_stocks
         })
 
+
 class ListStockView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request):
-        stock_id = request.data.get('stock_id')
+        logger.info(f"Listing request received for user {request.user.username}")
+        symbol = request.data.get('symbol')
         price = request.data.get('price')
-        
-        inventory_stock = get_object_or_404(InventoryStock, id=stock_id, user=request.user)
-        
-        listing = BazaarListing.objects.create(
-            seller=request.user,
-            stock=inventory_stock,
-            price=price
-        )
-        
-        serializer = BazaarListingSerializer(listing)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+        try:
+            inventory_stock = InventoryStock.objects.get(user=request.user, symbol=symbol)
+            
+            listing = BazaarListing.objects.create(
+                seller=request.user,
+                stock=inventory_stock,
+                price=price,
+                symbol=inventory_stock.symbol,
+                name=inventory_stock.name
+            )
+            logger.info(f"BazaarListing created with ID: {listing.id}")
+
+            # Remove the stock from the user's inventory
+            listing.stock = None
+            listing.save()
+            inventory_stock.delete()
+            logger.info(f"InventoryStock {inventory_stock.id} deleted and removed from BazaarListing")
+
+            return Response({'Listing response': 'Stock listed successfully', 'listing_id': listing.id}, status=status.HTTP_201_CREATED)
+
+        except InventoryStock.DoesNotExist:
+            logger.error(f"InventoryStock not found for user {request.user.username} and symbol {symbol}")
+            return Response({'error': 'Stock not found in inventory'}, status=status.HTTP_404_NOT_FOUND)
+
+        except Exception as e:
+            logger.error(f"Error creating listing: {str(e)}")
+            logger.error(traceback.format_exc())
+            return Response({'error': 'Listing creation failed', 'details': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)    
+        
 class EditListingView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -251,9 +289,10 @@ class BuyListedStockView(APIView):
             current_price=listing.stock.current_price
         )
         
-        # Remove the stock from the seller's inventory and delete the listing
-        listing.stock.delete()
+        # Remove the listing
         listing.delete()
+        
+        print(f"Listing {listing_id} bought and removed")
         
         return Response({"message": "Listed stock bought successfully"})
 
@@ -269,7 +308,9 @@ def persistent_portfolio_data(request):
     # Let's add some logging here
     print("Persistent Portfolio Stocks:", stocks)
     for stock in stocks:
-        print(f"Stock: {stock.stock.symbol}, Quantity: {stock.quantity}, Purchase Price: {stock.purchase_price}")
+        current_price = Stock.objects.get(symbol=stock.stock.symbol).current_price
+        stock.current_price = current_price
+        print(f"Stock: {stock.stock.symbol}, Quantity: {stock.quantity}, Purchase Price: {stock.purchase_price}, Current Price: {current_price}")
     
     serialized_data = PersistentPortfolioStockSerializer(stocks, many=True).data
     print("Serialized Data:", serialized_data)
@@ -284,7 +325,7 @@ def persistent_portfolio_data(request):
 def buy_persistent_stock(request):
     user = request.user
     symbol = request.data.get('symbol')
-    quantity = int(request.data.get('quantity', 0))
+    quantity = int(request.data.get('quantity', 1))  # Default to 1 for "Lock In"
     
     if not symbol or quantity <= 0:
         return Response({'error': 'Invalid data'}, status=status.HTTP_400_BAD_REQUEST)
@@ -293,11 +334,12 @@ def buy_persistent_stock(request):
     stock = get_object_or_404(Stock, symbol=symbol)
     persistent_portfolio, created = PersistentPortfolio.objects.get_or_create(user=user)
     
-    total_cost = stock.current_price * quantity
+    # Check if the stock is in the user's inventory
+    inventory_stock = InventoryStock.objects.filter(user=user, symbol=symbol).first()
+    if not inventory_stock:
+        return Response({'error': 'Stock not in inventory'}, status=status.HTTP_400_BAD_REQUEST)
     
-    if profile.moqs < total_cost:
-        return Response({'error': 'Not enough Moqs'}, status=status.HTTP_400_BAD_REQUEST)
-    
+    # For "Lock In", we don't deduct MOQs
     portfolio_stock, created = PersistentPortfolioStock.objects.get_or_create(
         portfolio=persistent_portfolio,
         stock=stock,
@@ -307,10 +349,10 @@ def buy_persistent_stock(request):
     portfolio_stock.quantity += quantity
     portfolio_stock.save()
     
-    profile.moqs -= total_cost
-    profile.save()
+    # Remove the stock from inventory
+    inventory_stock.delete()
     
-    return Response({'success': 'Stock purchased successfully'}, status=status.HTTP_200_OK)
+    return Response({'success': 'Stock locked in successfully'}, status=status.HTTP_200_OK)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -346,3 +388,64 @@ def sell_persistent_stock(request):
     profile.save()
     
     return Response({'success': 'Stock sold successfully'}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def lock_in_persistent_stock(request):
+    user = request.user
+    symbol = request.data.get('symbol')
+    quantity = int(request.data.get('quantity', 1))  # Default to 1 for "Lock In"
+    
+    if not symbol or quantity <= 0:
+        return Response({'error': 'Invalid data'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    profile = get_object_or_404(BazaarUserProfile, user=user)
+    stock = get_object_or_404(Stock, symbol=symbol)
+    persistent_portfolio, created = PersistentPortfolio.objects.get_or_create(user=user)
+    
+    # Check if the stock is in the user's inventory
+    inventory_stock = InventoryStock.objects.filter(user=user, symbol=symbol).first()
+    if not inventory_stock:
+        return Response({'error': 'Stock not in inventory'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Add to persistent portfolio without deducting MOQs
+    portfolio_stock, created = PersistentPortfolioStock.objects.get_or_create(
+        portfolio=persistent_portfolio,
+        stock=stock,
+        defaults={'quantity': 0, 'purchase_price': stock.current_price}
+    )
+    
+    portfolio_stock.quantity += quantity
+    portfolio_stock.save()
+    
+    # Remove the stock from inventory
+    inventory_stock.delete()
+    
+    return Response({'success': 'Stock locked in successfully'}, status=status.HTTP_200_OK)
+
+class CancelListingView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        listing_id = request.data.get('listing_id')
+        if not listing_id:
+            return Response({'error': 'Listing ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            listing = BazaarListing.objects.get(id=listing_id, seller=request.user)
+        except BazaarListing.DoesNotExist:
+            return Response({'error': 'Listing not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Return the stock to the user's inventory
+        InventoryStock.objects.create(
+            user=request.user,
+            symbol=listing.stock.symbol,
+            name=listing.stock.name,
+            industry=listing.stock.industry,
+            current_price=listing.stock.current_price
+        )
+
+        # Delete the listing
+        listing.delete()
+
+        return Response({'success': 'Listing cancelled successfully'}, status=status.HTTP_200_OK)

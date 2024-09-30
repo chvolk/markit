@@ -15,8 +15,13 @@ class InventoryStock(models.Model):
 
 class BazaarListing(models.Model):
     seller = models.ForeignKey(User, on_delete=models.CASCADE)
-    stock = models.ForeignKey(InventoryStock, on_delete=models.CASCADE)
-    price = models.IntegerField()  # Price in Moqs
+    stock = models.ForeignKey('InventoryStock', on_delete=models.SET_NULL, null=True)
+    price = models.IntegerField()
+    symbol = models.CharField(max_length=10)  # Add this line
+    name = models.CharField(max_length=100)   # Add this line
+
+    def __str__(self):
+        return f"{self.symbol} listed by {self.seller.username} for {self.price} MOQs"
 
 class PersistentPortfolio(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='persistent_portfolio')

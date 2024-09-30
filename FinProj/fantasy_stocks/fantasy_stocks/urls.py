@@ -21,8 +21,8 @@ from accounts.views import CustomAuthToken, LogoutView, SignupView
 from stocks.views import DraftStockView, AvailableStocksView, PortfolioView, PortfolioHistoryView, LeaderboardView, SellStockView
 from leagues.views import LeagueViewSet
 from bazaar.views import (
-    BuyStockView, SellStockView, AddToInventoryView, BuyPackView,
-    ListStockView, EditListingView, BuyListedStockView, bazaar_data, buy_persistent_stock, persistent_portfolio_data, sell_persistent_stock
+    BuyStockView, SellStockView, AddToInventoryView, BuyPackView, CancelListingView,
+    ListStockView, EditListingView, BuyListedStockView, bazaar_data, buy_persistent_stock, persistent_portfolio_data, sell_persistent_stock, lock_in_persistent_stock, 
 )
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -60,4 +60,6 @@ urlpatterns = [
     path('api/persistent-portfolio/', persistent_portfolio_data, name='persistent_portfolio_data'),
     path('api/persistent-portfolio/buy/', buy_persistent_stock, name='buy_persistent_stock'),
     path('api/persistent-portfolio/sell/', sell_persistent_stock, name='sell_persistent_stock'),
+    path('api/persistent-portfolio/lock-in/', lock_in_persistent_stock, name='lock_in_persistent_stock'),
+    path('api/bazaar/cancel-listing/', CancelListingView.as_view(), name='cancel-listing'),
 ]
