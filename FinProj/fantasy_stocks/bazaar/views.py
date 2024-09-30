@@ -326,6 +326,15 @@ def persistent_portfolio_data(request):
         'total_value': total_value
     })
 
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def moq_leaderboard(request):
+    leaderboard = BazaarUserProfile.objects.all().order_by('-moqs')[:100]
+    data = [{'username': profile.user.username, 'total_moqs': profile.moqs} for profile in leaderboard]
+    return Response(data)
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def buy_persistent_stock(request):
