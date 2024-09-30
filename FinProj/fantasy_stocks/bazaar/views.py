@@ -309,17 +309,21 @@ def persistent_portfolio_data(request):
     
     # Let's add some logging here
     print("Persistent Portfolio Stocks:", stocks)
+    total_value = 0
     for stock in stocks:
         current_price = Stock.objects.get(symbol=stock.stock.symbol).current_price
         stock.current_price = current_price
-        print(f"Stock: {stock.stock.symbol}, Quantity: {stock.quantity}, Purchase Price: {stock.purchase_price}, Current Price: {current_price}")
+        total_value += current_price * stock.quantity
     
+    gain_loss = total_value
     serialized_data = PersistentPortfolioStockSerializer(stocks, many=True).data
     print("Serialized Data:", serialized_data)
     
     return Response({
         'available_moqs': profile.moqs,
         'stocks': serialized_data,
+        'gain_loss': gain_loss,
+        'total_value': total_value
     })
 
 @api_view(['POST'])
