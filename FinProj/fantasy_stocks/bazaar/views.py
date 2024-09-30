@@ -220,10 +220,10 @@ class ListStockView(APIView):
 
         try:
             inventory_stock = InventoryStock.objects.get(user=request.user, symbol=symbol)
-            
+            stock = get_object_or_404(Stock, symbol=symbol)
             listing = BazaarListing.objects.create(
                 seller=request.user,
-                stock=inventory_stock,
+                stock=stock,
                 price=price,
                 symbol=inventory_stock.symbol,
                 name=inventory_stock.name
@@ -231,7 +231,6 @@ class ListStockView(APIView):
             logger.info(f"BazaarListing created with ID: {listing.id}")
 
             # Remove the stock from the user's inventory
-            listing.stock = None
             listing.save()
             inventory_stock.delete()
             logger.info(f"InventoryStock {inventory_stock.id} deleted and removed from BazaarListing")

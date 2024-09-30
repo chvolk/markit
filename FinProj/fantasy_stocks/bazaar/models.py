@@ -15,10 +15,10 @@ class InventoryStock(models.Model):
 
 class BazaarListing(models.Model):
     seller = models.ForeignKey(User, on_delete=models.CASCADE)
-    stock = models.ForeignKey('InventoryStock', on_delete=models.SET_NULL, null=True)
-    price = models.IntegerField()
-    symbol = models.CharField(max_length=10)  # Add this line
-    name = models.CharField(max_length=100)   # Add this line
+    stock = models.ForeignKey(Stock, on_delete=models.CASCADE, default=1)  # Set a default Stock ID
+    price = models.DecimalField(max_digits=10, decimal_places=2)  # Use DecimalField for price
+    symbol = models.CharField(max_length=10)  # Optional, can be derived from stock
+    name = models.CharField(max_length=100)   # Optional, can be derived from stock
 
     def __str__(self):
         return f"{self.symbol} listed by {self.seller.username} for {self.price} MOQs"
