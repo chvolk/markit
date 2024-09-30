@@ -112,6 +112,8 @@ class PortfolioView(APIView):
             'balance': str(portfolio.balance),
             'total_value': str(portfolio.total_value),
             'total_gain_loss': str(portfolio.total_gain_loss),
+            'initial_investment': str(portfolio.initial_investment),
+            'user': request.user.username,  # Changed from request.user to request.user.username
             'stocks': [{
                 'stock': {
                     'symbol': ps.stock.symbol,
@@ -123,7 +125,6 @@ class PortfolioView(APIView):
             } for ps in portfolio_stocks]
         }
         return Response(data)
-
 class LeaderboardView(APIView):
     permission_classes = [IsAuthenticated]
 
