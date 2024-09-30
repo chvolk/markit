@@ -327,7 +327,7 @@ def persistent_portfolio_data(request):
 def buy_persistent_stock(request):
     user = request.user
     symbol = request.data.get('symbol')
-    quantity = int(request.data.get('quantity', 1))  # Default to 1 for "Lock In"
+    quantity = int(request.data.get('quantity'))  # Default to 1 for "Lock In"
     
     if not symbol or quantity <= 0:
         return Response({'error': 'Invalid data'}, status=status.HTTP_400_BAD_REQUEST)
@@ -335,12 +335,19 @@ def buy_persistent_stock(request):
     profile = get_object_or_404(BazaarUserProfile, user=user)
     stock = get_object_or_404(Stock, symbol=symbol)
     persistent_portfolio, created = PersistentPortfolio.objects.get_or_create(user=user)
-    
-    # Check if the stock is in the user's inventory
-    inventory_stock = InventoryStock.objects.filter(user=user, symbol=symbol).first()
-    if not inventory_stock:
-        return Response({'error': 'Stock not in inventory'}, status=status.HTTP_400_BAD_REQUEST)
-    
+    bazaar_user_profile = get_object_or_404(BazaarUserProfile, user=user)
+    user_portfolio = get_object_or_404(Portfolio, user=user)
+
+    #check if they have enough gains. Gain is the difference between initial balance and current balance of the user
+    gain = user_portfolio.balance - 50000
+    if gain < stock.current_price * quantity:
+        return Response({'error': 'Insufficient gains'}, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        print("User has enough gains")
+        user_portfolio.balance -= stock.current_price * quantity
+        user_portfolio.save()
+
+    print("Stock is in inventory")
     # For "Lock In", we don't deduct MOQs
     portfolio_stock, created = PersistentPortfolioStock.objects.get_or_create(
         portfolio=persistent_portfolio,
@@ -349,10 +356,8 @@ def buy_persistent_stock(request):
     )
     
     portfolio_stock.quantity += quantity
-    portfolio_stock.save()
     
-    # Remove the stock from inventory
-    inventory_stock.delete()
+    portfolio_stock.save()
     
     return Response({'success': 'Stock locked in successfully'}, status=status.HTTP_200_OK)
 
