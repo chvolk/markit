@@ -15,8 +15,16 @@ from django.views.decorators.csrf import csrf_exempt
 from random import choice
 import random
 import traceback
-from django.db import transaction
+from django.db import transaction, models
 import logging
+from django.db.models import F, Sum, OuterRef, Subquery, FloatField
+from django.db.models.functions import Coalesce
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from .models import BazaarUserProfile, InventoryStock, BazaarListing, PersistentPortfolio, PersistentPortfolioStock
+from stocks.models import Portfolio, Stock
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +67,10 @@ def bazaar_data(request):
         user_listings_data.append(BazaarListingSerializer(listing).data)
     
 
+    inventory_count = InventoryStock.objects.filter(user=user).count()
+    market_listing_count = BazaarListing.objects.filter(seller=user).count()
+    persistent_portfolio_count = PersistentPortfolioStock.objects.filter(portfolio__user=user).count()
+
     return Response({
         'available_gains': available_gains,
         'total_moqs': profile.moqs,
@@ -66,6 +78,12 @@ def bazaar_data(request):
         'market_listings': market_listings_data,
         'user_listings': user_listings_data,
         'persistent_portfolio': persistent_stock_data,
+        'inventory_limit': profile.inventory_limit,
+        'market_listing_limit': profile.market_listing_limit,
+        'persistent_portfolio_limit': profile.persistent_portfolio_limit,
+        'inventory_count': inventory_count,
+        'market_listing_count': market_listing_count,
+        'persistent_portfolio_count': persistent_portfolio_count,
     })
 
 
@@ -124,6 +142,11 @@ class AddToInventoryView(APIView):
     def post(self, request):
         symbol = request.data.get('symbol')
         stock = get_object_or_404(Stock, symbol=symbol)
+        user = request.user
+        profile = BazaarUserProfile.objects.get(user=user)
+        
+        if InventoryStock.objects.filter(user=user).count() >= profile.inventory_limit:
+            return Response({'error': 'Inventory limit reached'}, status=status.HTTP_400_BAD_REQUEST)
         
         # Add to inventory
         inventory_stock, created = InventoryStock.objects.get_or_create(
@@ -152,6 +175,12 @@ class BuyPackView(APIView):
 
     @transaction.atomic
     def post(self, request):
+        user = request.user
+        profile = BazaarUserProfile.objects.get(user=request.user)
+    
+        if BazaarListing.objects.filter(seller=user).count() >= profile.inventory_limit:
+            return Response({'error': 'Inventory limit reached'}, status=status.HTTP_400_BAD_REQUEST)
+    
         currency = request.data.get('currency')
         if currency not in ['gains', 'moqs']:
             return Response({"error": "Invalid currency"}, status=status.HTTP_400_BAD_REQUEST)
@@ -215,6 +244,11 @@ class ListStockView(APIView):
     @transaction.atomic
     def post(self, request):
         logger.info(f"Listing request received for user {request.user.username}")
+        user = request.user
+        profile = BazaarUserProfile.objects.get(user=user)
+        if BazaarListing.objects.filter(seller=user).count() >= profile.market_listing_limit:
+            return Response({'error': 'Market listing limit reached'}, status=status.HTTP_400_BAD_REQUEST)
+        
         symbol = request.data.get('symbol')
         price = request.data.get('price')
 
@@ -431,6 +465,10 @@ def lock_in_persistent_stock(request):
     user = request.user
     symbol = request.data.get('symbol')
     quantity = int(request.data.get('quantity', 1))  # Default to 1 for "Lock In"
+    profile = BazaarUserProfile.objects.get(user=user)
+    
+    if PersistentPortfolioStock.objects.filter(portfolio__user=user).count() >= profile.persistent_portfolio_limit:
+        return Response({'error': 'Persistent portfolio limit reached'}, status=status.HTTP_400_BAD_REQUEST)
     
     if not symbol or quantity <= 0:
         return Response({'error': 'Invalid data'}, status=status.HTTP_400_BAD_REQUEST)
@@ -485,3 +523,53 @@ class CancelListingView(APIView):
         listing.delete()
 
         return Response({'success': 'Listing cancelled successfully'}, status=status.HTTP_200_OK)
+    
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upgrade_inventory_limit(request):
+    user = request.user
+    profile = BazaarUserProfile.objects.get(user=user)
+    
+    if profile.moqs < 500:
+        return Response({'error': 'Insufficient funds'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    profile.inventory_limit = F('inventory_limit') + 1
+
+    
+    profile.moqs = F('moqs') - 500
+    profile.save()
+    
+    return Response({'success': 'Inventory limit upgraded successfully'}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upgrade_market_listing_limit(request):
+    user = request.user
+    profile = BazaarUserProfile.objects.get(user=user)
+    
+    if profile.moqs < 600:
+        return Response({'error': 'Insufficient funds'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    profile.market_listing_limit = F('market_listing_limit') + 1
+
+    
+    profile.moqs = F('moqs') - 600
+    profile.save()
+    
+    return Response({'success': 'Market listing limit upgraded successfully'}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upgrade_persistent_portfolio_limit(request):
+    user = request.user
+    profile = BazaarUserProfile.objects.get(user=user)
+    
+    if profile.moqs < 700:
+        return Response({'error': 'Insufficient funds'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    profile.persistent_portfolio_limit = F('persistent_portfolio_limit') + 1
+    
+    profile.moqs = F('moqs') - 700
+    profile.save()
+    
+    return Response({'success': 'Persistent portfolio limit upgraded successfully'}, status=status.HTTP_200_OK)

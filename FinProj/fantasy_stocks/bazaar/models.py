@@ -5,6 +5,9 @@ from stocks.models import Stock
 class BazaarUserProfile(models.Model):  # Changed name from UserProfile to BazaarUserProfile
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='bazaar_profile')
     moqs = models.IntegerField(default=0)
+    inventory_limit = models.IntegerField(default=10)
+    market_listing_limit = models.IntegerField(default=8)
+    persistent_portfolio_limit = models.IntegerField(default=6)
 
 class InventoryStock(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
