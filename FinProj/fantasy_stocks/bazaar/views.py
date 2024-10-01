@@ -159,7 +159,7 @@ class BuyPackView(APIView):
         profile = get_object_or_404(BazaarUserProfile, user=request.user)
         portfolio = get_object_or_404(Portfolio, user=request.user)
         
-        pack_price = 1000 if currency == 'gains' else 100  # Example prices
+        pack_price = 1000 if currency == 'gains' else 250  # Example prices
         
         if currency == 'gains' and portfolio.balance < pack_price:
             return Response({"error": "Insufficient gains"}, status=status.HTTP_400_BAD_REQUEST)
