@@ -347,6 +347,7 @@ def moq_leaderboard(request):
         user_dict = {'username': profile.user.username, 'total_moqs': total_moqs}
         data.append(user_dict)
 
+    data.sort(key=lambda x: x['total_moqs'], reverse=True)
     return Response(data)
 
 
