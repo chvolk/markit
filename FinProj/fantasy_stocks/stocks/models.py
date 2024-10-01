@@ -19,12 +19,12 @@ class Portfolio(models.Model):
     total_gain_loss = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
 
     def calculate_value(self):
-        stock_value = sum(ps.stock.current_price * ps.quantity for ps in self.portfoliostock_set.all())
+        stock_value = sum(Decimal(ps.stock.current_price) * Decimal(ps.quantity) for ps in self.portfoliostock_set.all())
         return stock_value + self.balance
 
     def update_total_value_and_gain_loss(self):
         self.total_value = self.calculate_value()
-        self.total_gain_loss = self.total_value - self.initial_investment
+        self.total_gain_loss = self.total_value - Decimal(self.initial_investment)
         self.save()
 
     def reset_balance(self):

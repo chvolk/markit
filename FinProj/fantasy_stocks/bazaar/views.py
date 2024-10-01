@@ -131,9 +131,19 @@ class SellStockView(APIView):
             stock.quantity -= quantity
             stock.save()
         
+        portfolio.balance += total_value
         portfolio.save()
-        
-        return Response({"message": f"{quantity} shares of {symbol} sold successfully"})
+
+        # Update total value and gain/loss
+        portfolio.update_total_value_and_gain_loss()
+
+        return Response({
+            'message': f'Successfully sold {quantity} shares of {stock.name}',
+            'new_quantity': stock.quantity if stock.quantity > 0 else 0,
+            'remaining_balance': float(portfolio.balance),
+            'total_value': float(portfolio.total_value),
+            'total_gain_loss': float(portfolio.total_gain_loss)
+        }, status=status.HTTP_200_OK)
 
 class AddToInventoryView(APIView):
     permission_classes = [IsAuthenticated]

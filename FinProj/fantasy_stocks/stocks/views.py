@@ -68,7 +68,10 @@ class DraftStockView(APIView):
             stock = Stock.objects.get(symbol=stock_symbol)
             portfolio = Portfolio.objects.get(user=request.user)
             
-            total_cost = stock.current_price * quantity
+            total_cost = Decimal(stock.current_price) * Decimal(quantity)
+            print(f"Total cost: {total_cost}")
+            print(f"Current balance: {portfolio.balance}")
+
             if portfolio.balance < total_cost:
                 return Response({
                     'error': 'Insufficient funds to complete this draft.'
@@ -81,24 +84,35 @@ class DraftStockView(APIView):
             )
             if not created:
                 # If not created, update the purchase price as an average
-                total_quantity = portfolio_stock.quantity + quantity
-                total_cost = (portfolio_stock.purchase_price * portfolio_stock.quantity) + (stock.current_price * quantity)
-                portfolio_stock.purchase_price = total_cost / total_quantity
+                total_quantity = Decimal(portfolio_stock.quantity) + Decimal(quantity)
+                total_cost_for_average = (Decimal(portfolio_stock.purchase_price) * Decimal(portfolio_stock.quantity)) + (Decimal(stock.current_price) * Decimal(quantity))
+                portfolio_stock.purchase_price = total_cost_for_average / total_quantity
 
             portfolio_stock.quantity += quantity
             portfolio_stock.save()
 
-            portfolio.balance -= total_cost
+            # Update the balance using Decimal arithmetic
+            new_balance = portfolio.balance - total_cost
+            print(f"Calculated new balance: {new_balance}")
+            portfolio.balance = new_balance
             portfolio.save()
+
+            # Update total value and gain/loss
+            portfolio.update_total_value_and_gain_loss()
+            print(f"Total value after update: {portfolio.total_value}")
+            print(f"Total gain/loss after update: {portfolio.total_gain_loss}")
 
             return Response({
                 'message': f'Successfully drafted {quantity} shares of {stock.name}',
                 'new_quantity': portfolio_stock.quantity,
-                'remaining_balance': float(portfolio.balance)
+                'remaining_balance': float(portfolio.balance),
+                'total_value': float(portfolio.total_value),
+                'total_gain_loss': float(portfolio.total_gain_loss)
             }, status=status.HTTP_200_OK)
         except Stock.DoesNotExist:
             return Response({'error': 'Stock not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
+            logger.error(f"Error in DraftStockView: {str(e)}")
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class PortfolioView(APIView):
