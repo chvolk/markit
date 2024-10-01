@@ -331,7 +331,22 @@ def persistent_portfolio_data(request):
 @permission_classes([IsAuthenticated])
 def moq_leaderboard(request):
     leaderboard = BazaarUserProfile.objects.all().order_by('-moqs')[:100]
-    data = [{'username': profile.user.username, 'total_moqs': profile.moqs} for profile in leaderboard]
+    # Get total value of persistent portfolio for each user
+    data = []
+    for profile in leaderboard:
+        try:
+            persistent_portfolio = PersistentPortfolio.objects.get(user=profile.user)
+            stocks = PersistentPortfolioStock.objects.filter(portfolio=persistent_portfolio)
+            total_value = 0
+            for stock in stocks:
+                total_value += stock.stock.current_price * stock.quantity
+            total_moqs = profile.moqs + total_value
+        except Exception as e:
+            print(f"Error getting persistent portfolio for user {profile.user.username}: {str(e)}") 
+            continue
+        user_dict = {'username': profile.user.username, 'total_moqs': total_moqs}
+        data.append(user_dict)
+
     return Response(data)
 
 
