@@ -21,8 +21,9 @@ from accounts.views import CustomAuthToken, LogoutView, SignupView
 from stocks.views import DraftStockView, AvailableStocksView, PortfolioView, PortfolioHistoryView, LeaderboardView, SellStockView as StockSellerView
 from leagues.views import LeagueViewSet
 from bazaar.views import (
-    BuyStockView, SellStockView, AddToInventoryView, BuyPackView, CancelListingView, moq_leaderboard,
+    BuyStockView, SellStockView, AddToInventoryView, BuyPackView, CancelListingView, moq_leaderboard, 
     ListStockView, EditListingView, BuyListedStockView, bazaar_data, buy_persistent_stock, persistent_portfolio_data, sell_persistent_stock, lock_in_persistent_stock, 
+    upgrade_inventory_limit, upgrade_market_listing_limit, upgrade_persistent_portfolio_limit,
 )
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -63,4 +64,7 @@ urlpatterns = [
     path('api/persistent-portfolio/lock-in/', lock_in_persistent_stock, name='lock_in_persistent_stock'),
     path('api/bazaar/cancel-listing/', CancelListingView.as_view(), name='cancel-listing'),
     path('api/moq-leaderboard/', moq_leaderboard, name='moq-leaderboard'),
+    path('api/bazaar/upgrade-inventory-limit/', upgrade_inventory_limit, name='upgrade_inventory_limit'),
+    path('api/bazaar/upgrade-market-listing-limit/', upgrade_market_listing_limit, name='upgrade_market_listing_limit'),
+    path('api/bazaar/upgrade-persistent-portfolio-limit/', upgrade_persistent_portfolio_limit, name='upgrade_persistent_portfolio_limit'),
 ]
