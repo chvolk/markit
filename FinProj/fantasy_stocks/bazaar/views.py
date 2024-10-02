@@ -37,7 +37,7 @@ def bazaar_data(request):
     portfolio = get_object_or_404(Portfolio, user=user)
     persistent_portfolio, created = PersistentPortfolio.objects.get_or_create(user=user)
     
-    available_gains = max(0, portfolio.balance - 50000)  # Assuming starting balance is 50000
+    available_gains = portfolio.total_gain_loss
     
     inventory = InventoryStock.objects.filter(user=user)
     market_listings = BazaarListing.objects.all()
