@@ -18,7 +18,8 @@ from django.contrib import admin
 from rest_framework.routers import DefaultRouter
 from django.urls import path, include
 from accounts.views import CustomAuthToken, LogoutView, SignupView
-from stocks.views import DraftStockView, AvailableStocksView, PortfolioView, PortfolioHistoryView, LeaderboardView, SellStockView as StockSellerView
+from stocks.views import (DraftStockView, AvailableStocksView, PortfolioView, PortfolioHistoryView, 
+                           LeaderboardView, SellStockView as StockSellerView, update_gains, update_spent)
 from leagues.views import LeagueViewSet
 from bazaar.views import (
     BuyStockView, SellStockView, AddToInventoryView, BuyPackView, CancelListingView, moq_leaderboard, 
@@ -66,5 +67,7 @@ urlpatterns = [
     path('api/moq-leaderboard/', moq_leaderboard, name='moq-leaderboard'),
     path('api/bazaar/upgrade-inventory-limit/', upgrade_inventory_limit, name='upgrade_inventory_limit'),
     path('api/bazaar/upgrade-market-listing-limit/', upgrade_market_listing_limit, name='upgrade_market_listing_limit'),
+    path('api/update-gains/', update_gains, name='update_gains'),
+    path('api/update-spent/', update_spent, name='update_spent'),
     path('api/bazaar/upgrade-persistent-portfolio-limit/', upgrade_persistent_portfolio_limit, name='upgrade_persistent_portfolio_limit'),
 ]

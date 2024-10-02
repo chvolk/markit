@@ -17,7 +17,8 @@ class Portfolio(models.Model):
     initial_investment = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('50000.00'))
     total_value = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('50000.00'))
     total_gain_loss = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
-
+    available_gains = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    total_spent = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     def calculate_value(self):
         stock_value = sum(Decimal(ps.stock.current_price) * Decimal(ps.quantity) for ps in self.portfoliostock_set.all())
         return stock_value + self.balance

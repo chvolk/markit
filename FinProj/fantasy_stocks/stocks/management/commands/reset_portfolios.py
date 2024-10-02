@@ -9,7 +9,7 @@ class Command(BaseCommand):
         # Delete all PortfolioStock entries
         PortfolioStock.objects.all().delete()
         # Reset balance to 50000 for all portfolios
-        Portfolio.objects.update(balance=50000.00)
+        Portfolio.objects.update(balance=50000.00, available_gains=0.00, total_spent=0.00, total_gain_loss=0.00)
 
         # Update all Portfolios to reset any calculated values
         Portfolio.objects.update(last_reset=timezone.now())

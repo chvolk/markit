@@ -185,44 +185,54 @@ class BuyPackView(APIView):
 
     @transaction.atomic
     def post(self, request):
+        print("Howdy, partner! We're fixin' to buy a pack of stocks!")
         user = request.user
         profile = BazaarUserProfile.objects.get(user=request.user)
     
+        print(f"Checkin' if {user.username} has room in their inventory...")
         if BazaarListing.objects.filter(seller=user).count() >= profile.inventory_limit:
+            print("Dagnabit! Inventory's full as a tick!")
             return Response({'error': 'Inventory limit reached'}, status=status.HTTP_400_BAD_REQUEST)
     
         currency = request.data.get('currency')
+        print(f"Usin' {currency} to buy this here pack")
         if currency not in ['gains', 'moqs']:
+            print("Well, butter my biscuit! That ain't a valid currency!")
             return Response({"error": "Invalid currency"}, status=status.HTTP_400_BAD_REQUEST)
         
         profile = get_object_or_404(BazaarUserProfile, user=request.user)
         portfolio = get_object_or_404(Portfolio, user=request.user)
         
         pack_price = 500 if currency == 'gains' else 250  # Example prices
+        print(f"This pack's gonna cost ya {pack_price} {currency}")
         
-        if currency == 'gains' and portfolio.balance < pack_price:
+        available_gains = portfolio.total_gain_loss - portfolio.total_spent
+        if currency == 'gains' and available_gains < pack_price:
+            print("You're broker than a cowboy after a night in Tombstone!")
             return Response({"error": "Insufficient gains"}, status=status.HTTP_400_BAD_REQUEST)
         elif currency == 'moqs' and profile.moqs < pack_price:
+            print("You're outta moqs, pardner!")
             return Response({"error": "Insufficient moqs"}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Get all industries that have at least 5 stocks
+        print("Roundin' up all them industries with at least 5 stocks...")
         industries = Stock.objects.values('industry').annotate(
             count=Count('industry')
         ).filter(count__gte=5)
         
         if not industries:
+            print("Well, I'll be! There ain't no industries with enough stocks!")
             return Response({"error": "No industries with enough stocks available"}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Randomly select an industry
+        print("Pickin' an industry at random, like drawin' from a hat...")
         selected_industry = choice(industries)['industry']
+        print(f"And the winner is... {selected_industry}!")
         
-        # Get 5 random stocks from the selected industry
+        print(f"Now, let's rustle up 5 random stocks from {selected_industry}")
         industry_stocks = list(Stock.objects.filter(industry=selected_industry))
         selected_pack_stocks = random.sample(industry_stocks, min(5, len(industry_stocks)))
-        print("Pack stocks picked:")
+        print("Here's what we lassoed:")
         for stock in selected_pack_stocks:
             print(f"Symbol: {stock.symbol}, Name: {stock.name}, Industry: {stock.industry}")
-        persistent_portfolio, _ = PersistentPortfolio.objects.get_or_create(user=request.user)
         
         pack_stocks = []
         for stock in selected_pack_stocks:
@@ -232,15 +242,19 @@ class BuyPackView(APIView):
                 'industry': stock.industry,
                 'current_price': stock.current_price
             })
-        print("Pack stocks before sending to frontend:")
+        print("Fixin' to send these stocks to the frontend:")
         print(pack_stocks)
         if currency == 'gains':
-            portfolio.balance -= pack_price
+            print(f"Takin' {pack_price} gains from your portfolio")
+            portfolio.available_gains -= pack_price
+            portfolio.total_spent += pack_price
             portfolio.save()
         else:
+            print(f"Takin' {pack_price} moqs from your profile")
             profile.moqs -= pack_price
             profile.save()
         
+        print("Well, hot dog! You've got yourself a new pack of stocks!")
         return Response({
             "message": "Pack bought successfully",
             "industry": selected_industry,

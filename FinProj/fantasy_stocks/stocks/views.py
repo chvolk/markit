@@ -19,6 +19,7 @@ from django.db.models.functions import Coalesce
 from django.contrib.auth.models import User
 from decimal import Decimal
 from .models import PortfolioHistory
+from decimal import Decimal
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -122,11 +123,14 @@ class PortfolioView(APIView):
         portfolio, created = Portfolio.objects.get_or_create(user=request.user)
         portfolio.update_total_value_and_gain_loss()  # Update the total value and gain/loss
         portfolio_stocks = PortfolioStock.objects.filter(portfolio=portfolio)
+        available_gains = portfolio.total_gain_loss - portfolio.total_spent
         data = {
             'balance': str(portfolio.balance),
             'total_value': str(portfolio.total_value),
             'total_gain_loss': str(portfolio.total_gain_loss),
             'initial_investment': str(portfolio.initial_investment),
+            'total_spent': str(portfolio.total_spent),
+            'available_gains': str(available_gains),
             'user': request.user.username,  # Changed from request.user to request.user.username
             'stocks': [{
                 'stock': {
@@ -204,3 +208,69 @@ class SellStockView(APIView):
             return Response({'error': 'You do not own this stock'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def update_gains(request):
+    user = request.user
+    new_gains = request.data.get('available_gains', False)
+    new_total_gain_loss = request.data.get('total_gains', False)
+
+    if new_gains is None:
+        return Response({'error': 'Gains value is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        new_gains = float(new_gains)
+    except ValueError:
+        return Response({'error': 'Invalid gains value'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        profile = Portfolio.objects.get(user=user)
+        if new_total_gain_loss:
+            profile.total_gain_loss = new_total_gain_loss
+        if new_gains:
+            profile.available_gains = new_gains
+        profile.save()
+        return Response({'message': 'Gains updated successfully'}, status=status.HTTP_200_OK)
+    except Portfolio.DoesNotExist:
+        return Response({'error': 'User profile not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def update_spent(request):
+    user = request.user
+    spent_amount = request.data.get('spent')
+
+    print(f"Updating spent for user: {user.username}")
+    print(f"Received spent amount: {spent_amount}")
+
+    if spent_amount is None:
+        print("Error: spent value is required")
+        return Response({'error': 'spent value is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        spent_amount = float(spent_amount)
+        print(f"Converted spent amount to float: {spent_amount}")
+    except ValueError:
+        print("Error: Invalid spent value")
+        return Response({'error': 'Invalid spent value'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        profile = Portfolio.objects.get(user=user)
+        print(f"Found profile for user: {user.username}")
+        print(f"Current total spent: {profile.total_spent}")
+        profile.total_spent = profile.total_spent + Decimal(str(spent_amount))
+        print(f"Updated total spent: {profile.total_spent}")
+        profile.save()
+        print("Profile saved successfully")
+        return Response({'message': 'spent updated successfully'}, status=status.HTTP_200_OK)
+    except Portfolio.DoesNotExist:
+        print(f"Error: User profile not found for {user.username}")
+        return Response({'error': 'User profile not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        print(f"Unexpected error: {str(e)}")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
