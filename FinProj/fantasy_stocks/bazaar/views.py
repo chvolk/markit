@@ -405,6 +405,8 @@ def moq_leaderboard(request):
         user_dict = {'username': profile.user.username, 'total_moqs': total_moqs}
         data.append(user_dict)
 
+    # Filter out users with total_moqs of 600
+    data = [user for user in data if user['total_moqs'] != 600]
     data.sort(key=lambda x: x['total_moqs'], reverse=True)
     return Response(data)
 
