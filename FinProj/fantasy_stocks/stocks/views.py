@@ -164,9 +164,12 @@ class LeaderboardView(APIView):
             )
         ).values('username', 'total_value', 'gain_loss').order_by('-gain_loss')
 
-        # Filter out users with total_value of 50000.00
-        users = users.filter(total_value__ne=50000.00)
-        
+        # Filter out users with total_value not equal to 50000.00
+        try:
+            users = users.exclude(total_value=50000.00)
+        except Exception as e:
+            print(f"Well, butter my biscuit! Error filtering users: {str(e)}")
+
         return Response(list(users))
 
 class SellStockView(APIView):
