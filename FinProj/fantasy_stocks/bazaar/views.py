@@ -421,11 +421,15 @@ def moq_leaderboard(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def buy_persistent_stock(request):
+    print("Howdy partner! We're fixin' to buy some persistent stock.")
     user = request.user
     symbol = request.data.get('symbol')
     quantity = int(request.data.get('quantity')) 
     
+    print(f"User {user.username} is tryin' to buy {quantity} shares of {symbol}")
+    
     if not symbol or quantity <= 0:
+        print("Well, butter my biscuit! That's some invalid data right there.")
         return Response({'error': 'Invalid data'}, status=status.HTTP_400_BAD_REQUEST)
     
     profile = get_object_or_404(BazaarUserProfile, user=user)
@@ -434,17 +438,21 @@ def buy_persistent_stock(request):
     bazaar_user_profile = get_object_or_404(BazaarUserProfile, user=user)
     user_portfolio = get_object_or_404(Portfolio, user=user)
 
-    #check if they have enough gains. Gain is the difference between initial balance and current balance of the user
+    print(f"Alrighty, let's see if {user.username} has enough gains to make this purchase.")
     gain = user_portfolio.available_gains
-    if gain < stock.current_price * quantity:
+    total_cost = stock.current_price * quantity
+    print(f"Total cost: ${total_cost:.2f}, Available gains: ${gain:.2f}")
+    
+    if gain < total_cost:
+        print("Well, shoot! Looks like we're a few dollars short of a cattle drive.")
         return Response({'error': 'Insufficient gains'}, status=status.HTTP_400_BAD_REQUEST)
     else:
-        print("User has enough gains")
-        user_portfolio.available_gains -= stock.current_price * quantity
+        print("User has enough gains. Time to rustle up some stocks!")
+        user_portfolio.available_gains -= total_cost
         user_portfolio.save()
+        print(f"Updated available gains: ${user_portfolio.available_gains:.2f}")
 
-    print("Stock is in inventory")
-    # For "Lock In", we don't deduct MOQs
+    print("Stock is in inventory. Let's wrangle it into the persistent portfolio.")
     portfolio_stock, created = PersistentPortfolioStock.objects.get_or_create(
         portfolio=persistent_portfolio,
         stock=stock,
@@ -454,7 +462,9 @@ def buy_persistent_stock(request):
     portfolio_stock.quantity += quantity
     
     portfolio_stock.save()
+    print(f"Added {quantity} shares of {symbol} to the persistent portfolio.")
     
+    print("Well, I'll be! We've successfully locked in that stock.")
     return Response({'success': 'Stock locked in successfully'}, status=status.HTTP_200_OK)
 
 @api_view(['POST'])
