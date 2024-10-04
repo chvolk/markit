@@ -24,6 +24,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from .models import BazaarUserProfile, InventoryStock, BazaarListing, PersistentPortfolio, PersistentPortfolioStock
+# from .models import Tag
 from stocks.models import Portfolio, Stock
 
 logger = logging.getLogger(__name__)
@@ -236,12 +237,18 @@ class BuyPackView(APIView):
         
         pack_stocks = []
         for stock in selected_pack_stocks:
+            # if random.random() < 0.9:
+            #     tag = random.choice(Tag.TAG_TYPES)[0]
             pack_stocks.append({
                 'symbol': stock.symbol,
                 'name': stock.name,
                 'industry': stock.industry,
                 'current_price': stock.current_price
+                # 'tags': tag
             })
+            
+                
+
         print("Fixin' to send these stocks to the frontend:")
         print(pack_stocks)
         if currency == 'gains':
@@ -416,7 +423,7 @@ def moq_leaderboard(request):
 def buy_persistent_stock(request):
     user = request.user
     symbol = request.data.get('symbol')
-    quantity = int(request.data.get('quantity'))  # Default to 1 for "Lock In"
+    quantity = int(request.data.get('quantity')) 
     
     if not symbol or quantity <= 0:
         return Response({'error': 'Invalid data'}, status=status.HTTP_400_BAD_REQUEST)
@@ -428,12 +435,12 @@ def buy_persistent_stock(request):
     user_portfolio = get_object_or_404(Portfolio, user=user)
 
     #check if they have enough gains. Gain is the difference between initial balance and current balance of the user
-    gain = user_portfolio.balance - 50000
+    gain = user_portfolio.available_gains
     if gain < stock.current_price * quantity:
         return Response({'error': 'Insufficient gains'}, status=status.HTTP_400_BAD_REQUEST)
     else:
         print("User has enough gains")
-        user_portfolio.balance -= stock.current_price * quantity
+        user_portfolio.available_gains -= stock.current_price * quantity
         user_portfolio.save()
 
     print("Stock is in inventory")
