@@ -123,7 +123,7 @@ class PortfolioView(APIView):
         portfolio, created = Portfolio.objects.get_or_create(user=request.user)
         portfolio.update_total_value_and_gain_loss()  # Update the total value and gain/loss
         portfolio_stocks = PortfolioStock.objects.filter(portfolio=portfolio)
-        available_gains = portfolio.total_gain_loss - portfolio.total_spent
+        available_gains = portfolio.available_gains
         data = {
             'balance': str(portfolio.balance),
             'total_value': str(portfolio.total_value),
