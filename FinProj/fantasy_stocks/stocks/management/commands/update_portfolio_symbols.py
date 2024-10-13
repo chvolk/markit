@@ -17,7 +17,6 @@ class Command(BaseCommand):
         # Combine and deduplicate symbols
         all_symbols = set(list(weekly_symbols) + list(persistent_symbols))
         
-        self.stdout.write(f"Updating prices for {len(all_symbols)} unique symbols...")
 
         for symbol in all_symbols:
             try:

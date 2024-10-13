@@ -23,8 +23,9 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from .models import BazaarUserProfile, InventoryStock, BazaarListing, PersistentPortfolio, PersistentPortfolioStock
+from .models import BazaarUserProfile, InventoryStock, BazaarListing, PersistentPortfolio, PersistentPortfolioStock, Tag
 # from .models import Tag
+import random
 from stocks.models import Portfolio, Stock
 
 logger = logging.getLogger(__name__)
@@ -186,82 +187,61 @@ class BuyPackView(APIView):
 
     @transaction.atomic
     def post(self, request):
-        print("Howdy, partner! We're fixin' to buy a pack of stocks!")
         user = request.user
         profile = BazaarUserProfile.objects.get(user=request.user)
     
-        print(f"Checkin' if {user.username} has room in their inventory...")
         if BazaarListing.objects.filter(seller=user).count() >= profile.inventory_limit:
-            print("Dagnabit! Inventory's full as a tick!")
             return Response({'error': 'Inventory limit reached'}, status=status.HTTP_400_BAD_REQUEST)
-    
+        
         currency = request.data.get('currency')
-        print(f"Usin' {currency} to buy this here pack")
         if currency not in ['gains', 'moqs']:
-            print("Well, butter my biscuit! That ain't a valid currency!")
             return Response({"error": "Invalid currency"}, status=status.HTTP_400_BAD_REQUEST)
         
         profile = get_object_or_404(BazaarUserProfile, user=request.user)
         portfolio = get_object_or_404(Portfolio, user=request.user)
         
         pack_price = 500 if currency == 'gains' else 250  # Example prices
-        print(f"This pack's gonna cost ya {pack_price} {currency}")
         
         available_gains = portfolio.total_gain_loss - portfolio.total_spent
         if currency == 'gains' and available_gains < pack_price:
-            print("You're broker than a cowboy after a night in Tombstone!")
             return Response({"error": "Insufficient gains"}, status=status.HTTP_400_BAD_REQUEST)
         elif currency == 'moqs' and profile.moqs < pack_price:
-            print("You're outta moqs, pardner!")
             return Response({"error": "Insufficient moqs"}, status=status.HTTP_400_BAD_REQUEST)
         
-        print("Roundin' up all them industries with at least 5 stocks...")
         industries = Stock.objects.values('industry').annotate(
             count=Count('industry')
         ).filter(count__gte=5)
         
         if not industries:
-            print("Well, I'll be! There ain't no industries with enough stocks!")
             return Response({"error": "No industries with enough stocks available"}, status=status.HTTP_400_BAD_REQUEST)
         
-        print("Pickin' an industry at random, like drawin' from a hat...")
         selected_industry = choice(industries)['industry']
-        print(f"And the winner is... {selected_industry}!")
         
-        print(f"Now, let's rustle up 5 random stocks from {selected_industry}")
         industry_stocks = list(Stock.objects.filter(industry=selected_industry))
         selected_pack_stocks = random.sample(industry_stocks, min(5, len(industry_stocks)))
-        print("Here's what we lassoed:")
-        for stock in selected_pack_stocks:
-            print(f"Symbol: {stock.symbol}, Name: {stock.name}, Industry: {stock.industry}")
         
         pack_stocks = []
         for stock in selected_pack_stocks:
-            # if random.random() < 0.9:
-            #     tag = random.choice(Tag.TAG_TYPES)[0]
+            if random.random() < 0.3:
+                tag = random.choice(Tag.TAG_TYPES)[0]
+            else:
+                tag = "Neutral"
             pack_stocks.append({
                 'symbol': stock.symbol,
                 'name': stock.name,
                 'industry': stock.industry,
-                'current_price': stock.current_price
-                # 'tags': tag
+                'current_price': stock.current_price,
+                'tags': tag
             })
             
-                
-
-        print("Fixin' to send these stocks to the frontend:")
-        print(pack_stocks)
         if currency == 'gains':
-            print(f"Takin' {pack_price} gains from your portfolio")
             portfolio.available_gains -= pack_price
             portfolio.total_spent += pack_price
             portfolio.save()
         else:
-            print(f"Takin' {pack_price} moqs from your profile")
             profile.moqs -= pack_price
             profile.save()
         
-        print("Well, hot dog! You've got yourself a new pack of stocks!")
         return Response({
             "message": "Pack bought successfully",
             "industry": selected_industry,
@@ -369,7 +349,8 @@ def persistent_portfolio_data(request):
     user = request.user
     profile, created = BazaarUserProfile.objects.get_or_create(user=user, defaults={'moqs': 1000})
     persistent_portfolio, created = PersistentPortfolio.objects.get_or_create(user=user)
-    
+    portfolio = get_object_or_404(Portfolio, user=user)
+    spent = portfolio.total_spent
     stocks = PersistentPortfolioStock.objects.filter(portfolio=persistent_portfolio)
     
     # Let's add some logging here
@@ -386,6 +367,7 @@ def persistent_portfolio_data(request):
     
     return Response({
         'available_moqs': profile.moqs,
+        'total_spent': spent,
         'stocks': serialized_data,
         'gain_loss': gain_loss,
         'total_value': total_value
@@ -421,15 +403,11 @@ def moq_leaderboard(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def buy_persistent_stock(request):
-    print("Howdy partner! We're fixin' to buy some persistent stock.")
     user = request.user
     symbol = request.data.get('symbol')
     quantity = int(request.data.get('quantity')) 
     
-    print(f"User {user.username} is tryin' to buy {quantity} shares of {symbol}")
-    
     if not symbol or quantity <= 0:
-        print("Well, butter my biscuit! That's some invalid data right there.")
         return Response({'error': 'Invalid data'}, status=status.HTTP_400_BAD_REQUEST)
     
     profile = get_object_or_404(BazaarUserProfile, user=user)
@@ -438,21 +416,15 @@ def buy_persistent_stock(request):
     bazaar_user_profile = get_object_or_404(BazaarUserProfile, user=user)
     user_portfolio = get_object_or_404(Portfolio, user=user)
 
-    print(f"Alrighty, let's see if {user.username} has enough gains to make this purchase.")
     gain = user_portfolio.available_gains
     total_cost = stock.current_price * quantity
-    print(f"Total cost: ${total_cost:.2f}, Available gains: ${gain:.2f}")
     
     if gain < total_cost:
-        print("Well, shoot! Looks like we're a few dollars short of a cattle drive.")
         return Response({'error': 'Insufficient gains'}, status=status.HTTP_400_BAD_REQUEST)
     else:
-        print("User has enough gains. Time to rustle up some stocks!")
         user_portfolio.available_gains -= total_cost
         user_portfolio.save()
-        print(f"Updated available gains: ${user_portfolio.available_gains:.2f}")
 
-    print("Stock is in inventory. Let's wrangle it into the persistent portfolio.")
     portfolio_stock, created = PersistentPortfolioStock.objects.get_or_create(
         portfolio=persistent_portfolio,
         stock=stock,
@@ -462,9 +434,7 @@ def buy_persistent_stock(request):
     portfolio_stock.quantity += quantity
     
     portfolio_stock.save()
-    print(f"Added {quantity} shares of {symbol} to the persistent portfolio.")
     
-    print("Well, I'll be! We've successfully locked in that stock.")
     return Response({'success': 'Stock locked in successfully'}, status=status.HTTP_200_OK)
 
 @api_view(['POST'])

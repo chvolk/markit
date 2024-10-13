@@ -224,7 +224,6 @@ class SellStockView(APIView):
 def update_gains(request):
     user = request.user
     new_gains = request.data.get('available_gains', False)
-    new_total_gain_loss = request.data.get('total_gains', False)
 
     if new_gains is None:
         return Response({'error': 'Gains value is required'}, status=status.HTTP_400_BAD_REQUEST)
@@ -236,8 +235,6 @@ def update_gains(request):
 
     try:
         profile = Portfolio.objects.get(user=user)
-        if new_total_gain_loss:
-            profile.total_gain_loss = new_total_gain_loss
         if new_gains:
             profile.available_gains = new_gains
         profile.save()
