@@ -42,6 +42,17 @@ def bazaar_data(request):
     available_gains = portfolio.total_gain_loss
     
     inventory = InventoryStock.objects.filter(user=user)
+
+    inventory_data = []
+    for item in inventory:
+        item_data = {
+            'symbol': item.symbol,
+            'name': item.name,
+            'industry': item.industry,
+            'current_price': item.current_price,
+            'tags': ", ".join([tag.tag_type for tag in item.tags.all()])
+        }
+        inventory_data.append(item_data)
     market_listings = BazaarListing.objects.all()
     user_listings = BazaarListing.objects.filter(seller=user)
     persistent_stocks = PersistentPortfolioStock.objects.filter(portfolio=persistent_portfolio)
@@ -55,7 +66,8 @@ def bazaar_data(request):
             'industry': ps.stock.industry,
             'quantity': ps.quantity,
             'purchase_price': ps.purchase_price,
-            'current_price': ps.stock.current_price
+            'current_price': ps.stock.current_price,
+            'tags': ", ".join([f"{tag.tag_type}: {tag.value}" for tag in ps.tags.all()])
         }
         persistent_stock_data.append(stock_data)
     
@@ -76,7 +88,7 @@ def bazaar_data(request):
     return Response({
         'available_gains': available_gains,
         'total_moqs': profile.moqs,
-        'inventory': InventoryStockSerializer(inventory, many=True).data,
+        'inventory': inventory_data,
         'market_listings': market_listings_data,
         'user_listings': user_listings_data,
         'persistent_portfolio': persistent_stock_data,
@@ -153,6 +165,7 @@ class AddToInventoryView(APIView):
     @transaction.atomic
     def post(self, request):
         symbol = request.data.get('symbol')
+        tag = request.data.get('tags')
         stock = get_object_or_404(Stock, symbol=symbol)
         user = request.user
         profile = BazaarUserProfile.objects.get(user=user)
@@ -167,9 +180,27 @@ class AddToInventoryView(APIView):
             defaults={
                 'name': stock.name,
                 'industry': stock.industry,
-                'current_price': stock.current_price
+                'current_price': stock.current_price,
             }
         )
+        if tag == 'COMMISSION':
+            value = random.uniform(1.1, 2.0)
+        elif tag == 'TENACIOUS':
+            value = random.uniform(0.1, 0.6)
+        elif tag == 'SUBSIDIZED':
+            value = random.randint(1, 100)
+        elif tag == 'INSIDER':
+            value = random.uniform(0.1, 0.6)
+        elif tag == 'GLITCHED':
+            value = 1
+        elif tag == 'SHORTSQUEEZE':
+            value = 1
+        if tag and tag != "Neutral":
+            try:
+                tag, _ = Tag.objects.get_or_create(tag_type=tag, value=value)
+                inventory_stock.tags.add(tag)
+            except Exception as e:
+                print(f"Error adding tag: {str(e)}")
         
         if not created:
             inventory_stock.current_price = stock.current_price
@@ -489,21 +520,31 @@ def lock_in_persistent_stock(request):
     profile = get_object_or_404(BazaarUserProfile, user=user)
     stock = get_object_or_404(Stock, symbol=symbol)
     persistent_portfolio, created = PersistentPortfolio.objects.get_or_create(user=user)
-    
+
     # Check if the stock is in the user's inventory
     inventory_stock = InventoryStock.objects.filter(user=user, symbol=symbol).first()
     if not inventory_stock:
         return Response({'error': 'Stock not in inventory'}, status=status.HTTP_400_BAD_REQUEST)
     
+    # Get the tags from the inventory stock
+    tags = inventory_stock.tags.all()
+    
     # Add to persistent portfolio without deducting MOQs
     portfolio_stock, created = PersistentPortfolioStock.objects.get_or_create(
         portfolio=persistent_portfolio,
         stock=stock,
-        defaults={'quantity': 0, 'purchase_price': stock.current_price}
+        defaults={
+            'quantity': quantity,
+            'purchase_price': stock.current_price,
+        }
     )
     
-    portfolio_stock.quantity += quantity
-    portfolio_stock.save()
+    if not created:
+        portfolio_stock.quantity += quantity
+        portfolio_stock.save()
+    
+    # Set the tags for the persistent portfolio stock
+    portfolio_stock.tags.set(tags)
     
     # Remove the stock from inventory
     inventory_stock.delete()

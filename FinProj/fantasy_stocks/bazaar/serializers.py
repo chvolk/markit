@@ -5,7 +5,10 @@ from stocks.serializers import StockSerializer
 class InventoryStockSerializer(serializers.ModelSerializer):
     class Meta:
         model = InventoryStock
-        fields = ['symbol', 'name', 'industry', 'current_price']
+        fields = ['symbol', 'name', 'industry', 'current_price', 'tags']
+
+    def get_tags(self, obj):
+        return [tag.tag_type for tag in obj.tags.all()]
 
 class BazaarListingSerializer(serializers.ModelSerializer):
     seller = serializers.CharField(source='seller.username')
