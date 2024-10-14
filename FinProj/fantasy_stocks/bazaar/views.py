@@ -50,7 +50,7 @@ def bazaar_data(request):
             'name': item.name,
             'industry': item.industry,
             'current_price': item.current_price,
-            'tags': ", ".join([tag.tag_type for tag in item.tags.all()])
+            'tags': ", ".join([f"{tag.tag_type}: {str(round(float(tag.value), 2))}" for tag in item.tags.all()])
         }
         inventory_data.append(item_data)
     market_listings = BazaarListing.objects.all()
@@ -67,7 +67,7 @@ def bazaar_data(request):
             'quantity': ps.quantity,
             'purchase_price': ps.purchase_price,
             'current_price': ps.stock.current_price,
-            'tags': ", ".join([f"{tag.tag_type}: {tag.value}" for tag in ps.tags.all()])
+            'tags': ", ".join([f"{tag.tag_type}: {str(round(float(tag.value), 2))}" for tag in ps.tags.all()])
         }
         persistent_stock_data.append(stock_data)
     
@@ -296,6 +296,7 @@ class ListStockView(APIView):
 
         try:
             inventory_stock = InventoryStock.objects.get(user=request.user, symbol=symbol)
+            tags = inventory_stock.tags.all()
             stock = get_object_or_404(Stock, symbol=symbol)
             listing = BazaarListing.objects.create(
                 seller=request.user,
@@ -304,6 +305,7 @@ class ListStockView(APIView):
                 symbol=inventory_stock.symbol,
                 name=inventory_stock.name
             )
+            listing.tags.set(tags)
             logger.info(f"BazaarListing created with ID: {listing.id}")
 
             # Remove the stock from the user's inventory
@@ -358,14 +360,17 @@ class BuyListedStockView(APIView):
         seller_profile.moqs += listing.price
         seller_profile.save()
         print("added moqs to seller")
+        tags = listing.tags.all()
         # Transfer the stock to the buyer's inventory
-        InventoryStock.objects.create(
+        inventory_stock = InventoryStock.objects.create(
             user=request.user,
             symbol=listing.stock.symbol,
+
             name=listing.stock.name,
             industry=listing.stock.industry,
             current_price=listing.stock.current_price
         )
+        inventory_stock.tags.set(tags)
         print("created inventory stock")
         # Remove the listing
         listing.delete()
