@@ -74,6 +74,8 @@ def bazaar_data(request):
     market_listings_data = []
     for listing in market_listings:
         serialized_listing = BazaarListingSerializer(listing).data
+        stock_current_price = listing.stock.current_price
+        serialized_listing['current_price'] = stock_current_price
         market_listings_data.append(serialized_listing)
     
     user_listings_data = []
