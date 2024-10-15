@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from bazaar.models import PersistentPortfolio, PersistentPortfolioStock, BazaarUserProfile, InventoryStock
+from bazaar.models import PersistentPortfolio, PersistentPortfolioStock, BazaarUserProfile, InventoryStock, BazaarListing
 from django.db import transaction
 
 class Command(BaseCommand):
@@ -46,7 +46,9 @@ class Command(BaseCommand):
                 if not dry_run:
                     # Delete all PersistentPortfolioStock entries
                     PersistentPortfolioStock.objects.all().delete()
-                    
+                    BazaarListing.objects.all().delete()
+                    PersistentPortfolio.objects.all().delete()
+                    InventoryStock.objects.all().delete()
                     # Update BazaarUserProfile to reset MOQs
                     BazaarUserProfile.objects.all().update(moqs=500)  # Set default MOQs
                     
