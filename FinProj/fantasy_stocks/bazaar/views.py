@@ -257,7 +257,6 @@ class BuyPackView(APIView):
                 tag = random.choice(Tag.TAG_TYPES)[0]
             else:
                 tag = "Neutral"
-            tag = "GLITCHED"
             pack_stocks.append({
                 'symbol': stock.symbol,
                 'name': stock.name,
@@ -480,7 +479,7 @@ def buy_persistent_stock(request):
     
     proc = False
     if tag_type == "INSIDER":
-        if random.random() < .5:
+        if random.random() < .4:
             quantity = quantity + (quantity * tag_value)
             portfolio_stock.quantity += quantity
             portfolio_stock.save()
