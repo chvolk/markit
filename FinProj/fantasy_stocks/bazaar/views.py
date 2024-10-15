@@ -235,7 +235,7 @@ class BuyPackView(APIView):
         
         pack_price = 500 if currency == 'gains' else 250  # Example prices
         
-        available_gains = portfolio.total_gain_loss - portfolio.total_spent
+        available_gains = portfolio.available_gains
         if currency == 'gains' and available_gains < pack_price:
             return Response({"error": "Insufficient gains"}, status=status.HTTP_400_BAD_REQUEST)
         elif currency == 'moqs' and profile.moqs < pack_price:
@@ -461,6 +461,7 @@ def buy_persistent_stock(request):
         return Response({'error': 'Insufficient gains'}, status=status.HTTP_400_BAD_REQUEST)
     else:
         user_portfolio.available_gains -= total_cost
+        user_portfolio.total_spent += total_cost
         user_portfolio.save()
 
     # Check if the stock is already in the portfolio
