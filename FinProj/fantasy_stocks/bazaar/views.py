@@ -253,7 +253,7 @@ class BuyPackView(APIView):
         
         pack_stocks = []
         for stock in selected_pack_stocks:
-            if random.random() < 0.3:
+            if random.random() < 0.23:
                 tag = random.choice(Tag.TAG_TYPES)[0]
             else:
                 tag = "Neutral"
