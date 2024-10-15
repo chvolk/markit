@@ -257,6 +257,7 @@ class BuyPackView(APIView):
                 tag = random.choice(Tag.TAG_TYPES)[0]
             else:
                 tag = "Neutral"
+            tag = "GLITCHED"
             pack_stocks.append({
                 'symbol': stock.symbol,
                 'name': stock.name,
@@ -461,21 +462,88 @@ def buy_persistent_stock(request):
         user_portfolio.available_gains -= total_cost
         user_portfolio.save()
 
+    # Check if the stock is already in the portfolio
     portfolio_stock, created = PersistentPortfolioStock.objects.get_or_create(
         portfolio=persistent_portfolio,
         stock=stock,
         defaults={'quantity': 0, 'purchase_price': stock.current_price}
     )
+
+    #get the first tag from the portfolio stock
+    tag = portfolio_stock.tags.first()
+    if tag:
+        tag_value = tag.value
+        tag_type = tag.tag_type
+    else:
+        tag_value = 1
+        tag_type = "Neutral"
     
-    portfolio_stock.quantity += quantity
-    
-    portfolio_stock.save()
-    
-    return Response({'success': 'Stock locked in successfully'}, status=status.HTTP_200_OK)
+    proc = False
+    if tag_type == "INSIDER":
+        if random.random() < .5:
+            quantity = quantity + (quantity * tag_value)
+            portfolio_stock.quantity += quantity
+            portfolio_stock.save()
+            proc = True
+    elif tag_type == "GLITCHED":
+        if random.random() < .1:
+            with transaction.atomic():
+                print("GLITCHED effect triggered!")
+                # Store the old stock's information
+                old_quantity = portfolio_stock.quantity
+                new_quantity = old_quantity + quantity
+                old_purchase_price = portfolio_stock.purchase_price
+                old_stock = portfolio_stock.stock
+                print(f"Old stock: {old_stock.symbol}, Quantity: {old_quantity}, New Quantity: {new_quantity}")
+
+                # Randomly select a new stock from the same industry
+                new_stock = Stock.objects.filter(industry=old_stock.industry).exclude(id=old_stock.id).order_by('?').first()
+
+                if new_stock:
+                    print(f"New stock selected: {new_stock.symbol}")
+                    # Create the new portfolio stock
+                    new_portfolio_stock = PersistentPortfolioStock.objects.create(
+                        portfolio=persistent_portfolio,
+                        stock=new_stock,
+                        quantity=new_quantity,
+                        purchase_price=old_purchase_price
+                    )
+                    print(f"New portfolio stock created: {new_portfolio_stock}")
+
+                    # Give new stock the glitched tag
+                    tag, _ = Tag.objects.get_or_create(tag_type="GLITCHED", value=1)
+                    new_portfolio_stock.tags.add(tag)
+                    print(f"GLITCHED tag added to new stock")
+
+                    # Delete the old portfolio stock
+                    portfolio_stock.delete()
+                    print(f"Old portfolio stock deleted")
+
+                    # Update the portfolio_stock reference to the new one
+                    portfolio_stock = new_portfolio_stock
+                    proc = True
+                    print(f"GLITCHED effect successful: {old_stock.symbol} -> {new_stock.symbol}")
+                else:
+                    # If no new stock is found, keep the old one
+                    portfolio_stock.quantity = new_quantity
+                    portfolio_stock.save()
+                    proc = False
+                    print(f"No new stock found. Keeping old stock: {old_stock.symbol}")
+        else:
+            print("GLITCHED effect failed")
+            portfolio_stock.quantity += quantity
+            portfolio_stock.save()
+            proc = False
+    else:
+        portfolio_stock.quantity += quantity
+        portfolio_stock.save()
+        proc = False
+    return Response({'success': 'Stock locked in successfully', 'proc': proc}, status=status.HTTP_200_OK)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def sell_persistent_stock(request):
+
     user = request.user
     symbol = request.data.get('symbol')
     quantity = int(request.data.get('quantity', 0))
@@ -497,16 +565,95 @@ def sell_persistent_stock(request):
     
     total_value = stock.current_price * quantity
     
-    portfolio_stock.quantity -= quantity
+    # portfolio_stock.quantity -= quantity
+    # if portfolio_stock.quantity == 0:
+    #     portfolio_stock.delete()
+    # else:
+    #     portfolio_stock.save()
+    
+    # profile.moqs += total_value
+    # profile.save()
+    tag = portfolio_stock.tags.first()
+    if tag:
+        tag_value = tag.value
+        tag_type = tag.tag_type
+    else:
+        tag_value = 1
+        tag_type = "Neutral"
+    proc = False
+    if tag_type == "COMMISSION":
+        if random.random() < .2:
+            total_value = total_value * tag_value
+            proc = True
+        portfolio_stock.quantity -= quantity
+    elif tag_type == "TENACIOUS":
+        if random.random() < .3:
+            quantity = round(quantity * tag_value, 0)
+            portfolio_stock.quantity -= quantity
+            proc = True
+        else:
+            portfolio_stock.quantity -= quantity
+            proc = False
+    elif tag_type == "SUBSIDIZED":
+        if random.random() < .2:
+            total_value = total_value + tag_value
+            proc = True
+        else:
+            portfolio_stock.quantity -= quantity
+            proc = False
+    elif tag_type == "GLITCHED":
+        print("Entering GLITCHED tag logic")
+        if random.random() < 0.1:
+            print("GLITCHED effect triggered")
+            with transaction.atomic():
+                old_quantity = portfolio_stock.quantity
+                new_quantity = old_quantity - quantity
+                old_purchase_price = portfolio_stock.purchase_price
+                old_stock = portfolio_stock.stock
+                print(f"Old quantity: {old_quantity}, New quantity: {new_quantity}")
+
+                new_stock = Stock.objects.filter(industry=old_stock.industry).exclude(id=old_stock.id).order_by('?').first()
+                if new_stock:
+                    print(f"Replacing with glitched stock: {new_stock.symbol}")
+                    # Delete the old stock entirely
+                    print(f"Deleting original stock: {portfolio_stock.stock.symbol}")
+                    portfolio_stock.delete()
+
+                    # Create new stock with the new quantity
+                    glitched_stock = PersistentPortfolioStock.objects.create(
+                        portfolio=persistent_portfolio,
+                        stock=new_stock,
+                        quantity=new_quantity,
+                        purchase_price=old_purchase_price
+                    )
+                    tag, _ = Tag.objects.get_or_create(tag_type="GLITCHED", value=1)
+                    glitched_stock.tags.add(tag)
+                    proc = True
+                    
+                    # Update portfolio_stock reference for the rest of the function
+                    portfolio_stock = glitched_stock
+                else:
+                    print("No new stock found, keeping original stock")
+                    portfolio_stock.quantity = new_quantity
+                    portfolio_stock.save()
+                    proc = False
+        else:
+            print("GLITCHED effect not triggered")
+            portfolio_stock.quantity -= quantity
+            portfolio_stock.save()
+            proc = False
+        print(f"GLITCHED logic completed. Proc: {proc}")
+
+    else:
+        portfolio_stock.quantity -= quantity
+
+    profile.moqs += total_value
     if portfolio_stock.quantity == 0:
         portfolio_stock.delete()
     else:
         portfolio_stock.save()
-    
-    profile.moqs += total_value
     profile.save()
-    
-    return Response({'success': 'Stock sold successfully'}, status=status.HTTP_200_OK)
+    return Response({'success': 'Stock sold successfully', 'proc': proc}, status=status.HTTP_200_OK)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])

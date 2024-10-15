@@ -29,7 +29,6 @@ class Tag(models.Model):
         ('SUBSIDIZED', 'Bonus Sell Value'),
         ('INSIDER', 'Chance to Buy Bonus Shares'),
         ('GLITCHED', 'Chance to Change into Random Stock when shares are bought or sold'),
-        ('SHORTSQUEEZE', 'Inverse Gains when shares are sold'),
     ]
 
     tag_type = models.CharField(max_length=20, choices=TAG_TYPES)
