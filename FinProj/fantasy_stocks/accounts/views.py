@@ -47,7 +47,7 @@ class SignupView(APIView):
             token, created = Token.objects.get_or_create(user=user)
             
             # Create BazaarUserProfile
-            BazaarUserProfile.objects.create(user=user, moqs=500)  # Start with 1000 moqs
+            BazaarUserProfile.objects.create(user=user, moqs=600)  # Start with 1000 moqs
             
             # Create Portfolio (if not already created elsewhere)
             Portfolio.objects.create(user=user, balance=50000)  # Start with $50,000
