@@ -53,7 +53,7 @@ class Command(BaseCommand):
                     PortfolioStock.objects.all().delete()
                     Portfolio.objects.all().delete()
                     # Update BazaarUserProfile to reset MOQs
-                    BazaarUserProfile.objects.all().update(moqs=500)  # Set default MOQs
+                    BazaarUserProfile.objects.all().update(moqs=600)  # Set default MOQs
                     Portfolio.objects.all().update(balance=50000.00, available_gains=0.00, total_spent=0.00, total_gain_loss=0.00, initial_investment=50000.00)
                     
                     if reset_inventories:
