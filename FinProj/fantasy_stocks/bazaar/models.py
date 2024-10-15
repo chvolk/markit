@@ -53,6 +53,7 @@ class BazaarListing(models.Model):
     symbol = models.CharField(max_length=10)  # Optional, can be derived from stock
     name = models.CharField(max_length=100)   # Optional, can be derived from stock
     tags = models.ManyToManyField(Tag)
+    
 
     def __str__(self):
         return f"{self.symbol} listed by {self.seller.username} for {self.price} MOQs"
@@ -71,11 +72,11 @@ class PersistentPortfolioStock(models.Model):
         if tag_type == 'COMMISSION':
             value = random.uniform(1.1, 2.0)
         elif tag_type == 'TENACIOUS':
-            value = random.uniform(0.1, 0.6)
+            value = random.uniform(0.05, 0.4)
         elif tag_type == 'SUBSIDIZED':
-            value = random.randint(1, 100)
+            value = random.randint(1, 35)
         elif tag_type == 'INSIDER':
-            value = random.uniform(0.1, 0.6)
+            value = random.uniform(0.05, 0.4)
         elif tag_type == 'GLITCHED':
             value = 1
         elif tag_type == 'SHORTSQUEEZE':
