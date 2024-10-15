@@ -716,13 +716,16 @@ class CancelListingView(APIView):
             return Response({'error': 'Listing not found'}, status=status.HTTP_404_NOT_FOUND)
 
         # Return the stock to the user's inventory
-        InventoryStock.objects.create(
+        inventory_stock = InventoryStock.objects.create(
             user=request.user,
             symbol=listing.stock.symbol,
             name=listing.stock.name,
             industry=listing.stock.industry,
-            current_price=listing.stock.current_price
+            current_price=listing.stock.current_price,
         )
+        
+        # Copy tags from listing to inventory_stock
+        inventory_stock.tags.set(listing.tags.all())
 
         # Delete the listing
         listing.delete()
