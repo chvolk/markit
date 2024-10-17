@@ -487,6 +487,10 @@ def buy_persistent_stock(request):
             portfolio_stock.quantity += quantity
             portfolio_stock.save()
             proc = True
+        else:
+            portfolio_stock.quantity += quantity
+            portfolio_stock.save()
+            proc = False
     elif tag_type == "GLITCHED":
         if random.random() < .1:
             with transaction.atomic():
